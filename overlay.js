@@ -11,10 +11,17 @@ const CONFIG = {
     },
     streamerBotWsUrl: 'ws://localhost:8080/StreamerBot', // placeholder
     twitchToken: '[placeholder]',
+    statsRefreshInterval: 30000,
 };
 
 const chatContainer = document.getElementById('chat-container');
 const statusEl = document.getElementById('connection-status');
+const infoBar = document.getElementById('info-bar');
+const timeEl = document.getElementById('time');
+const dateEl = document.getElementById('date');
+const viewerEl = document.getElementById('viewer-count');
+const followerEl = document.getElementById('follower-count');
+const subEl = document.getElementById('subscriber-count');
 let socket;
 let statusAnim;
 
@@ -41,12 +48,21 @@ function handleSocketMessage(event) {
 
 function updateOrientation(sceneName) {
     if (!sceneName) return;
-    if (sceneName.includes('[vertical]')) {
-        chatContainer.classList.remove(CONFIG.orientationClassNames.horizontal);
-        chatContainer.classList.add(CONFIG.orientationClassNames.vertical);
-    } else if (sceneName.includes('[horizontal]')) {
-        chatContainer.classList.remove(CONFIG.orientationClassNames.vertical);
-        chatContainer.classList.add(CONFIG.orientationClassNames.horizontal);
+    let orient = '';
+    if (sceneName.includes('[vertical]')) orient = CONFIG.orientationClassNames.vertical;
+    else if (sceneName.includes('[horizontal]')) orient = CONFIG.orientationClassNames.horizontal;
+    if (!orient) return;
+    chatContainer.classList.toggle(CONFIG.orientationClassNames.vertical, orient === CONFIG.orientationClassNames.vertical);
+    chatContainer.classList.toggle(CONFIG.orientationClassNames.horizontal, orient === CONFIG.orientationClassNames.horizontal);
+    if (infoBar) {
+        infoBar.classList.toggle(CONFIG.orientationClassNames.vertical, orient === CONFIG.orientationClassNames.vertical);
+        infoBar.classList.toggle(CONFIG.orientationClassNames.horizontal, orient === CONFIG.orientationClassNames.horizontal);
+        anime({
+            targets: infoBar,
+            opacity: [0, 1],
+            duration: 500,
+            easing: 'easeOutQuad'
+        });
     }
 }
 
@@ -175,3 +191,48 @@ function hideStatus() {
 }
 
 connectWebSocket();
+
+function updateTime() {
+    const now = new Date();
+    if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+async function updateChannelStats() {
+    try {
+        const res = await fetch('http://localhost:8080/api/channelStats', {
+            headers: { 'Authorization': 'Bearer [placeholder]' }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (viewerEl) {
+                viewerEl.textContent = `Viewers: ${data.viewers}`;
+                animateInfoUpdate(viewerEl);
+            }
+            if (followerEl) {
+                followerEl.textContent = `Followers: ${data.followers}`;
+                animateInfoUpdate(followerEl);
+            }
+            if (subEl) {
+                subEl.textContent = `Subs: ${data.subscribers}`;
+                animateInfoUpdate(subEl);
+            }
+        }
+    } catch (e) {
+        console.warn('Channel stats fetch failed', e);
+    }
+}
+
+updateTime();
+updateChannelStats();
+setInterval(updateTime, 1000);
+setInterval(updateChannelStats, CONFIG.statsRefreshInterval);
+
+function animateInfoUpdate(el) {
+    anime({
+        targets: el,
+        color: [CONFIG.platformColors.twitch, '#ffffff'],
+        duration: 800,
+        easing: 'easeInOutSine'
+    });
+}
