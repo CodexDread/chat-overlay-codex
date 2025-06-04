@@ -1,0 +1,73 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+    background: transparent;
+    color: #fff;
+}
+
+.chat {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.chat.vertical {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.chat.horizontal {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.chat-message {
+    display: flex;
+    flex-direction: column;
+    margin: 5px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+}
+
+.chat-message .meta {
+    font-size: 0.8em;
+    margin-bottom: 2px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.chat-message .meta .username {
+    font-weight: bold;
+}
+
+.chat-message .meta .platform {
+    font-size: 0.7em;
+    opacity: 0.7;
+}
+
+.twitch {
+    border-left: 4px solid #9146FF;
+}
+
+.youtube {
+    border-left: 4px solid #FF0000;
+}
+
+.vip {
+    border-color: gold;
+}
+
+.mod {
+    border-color: deepskyblue;
+}
+
+.hidden {
+    display: none;
+}
