@@ -1,22 +1,63 @@
+:root {
+    --bg-color: #000;
+    --accent-teal: #00ffc6;
+    --accent-magenta: #ff00a8;
+    --accent-crimson: #ff304f;
+    --accent-lime: #aaff00;
+    --text-color: #ffffff;
+}
+
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
     overflow: hidden;
-    background: transparent;
-    color: #fff;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Orbitron', sans-serif;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0, transparent 2px, transparent 40px),
+                      repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0, transparent 2px, transparent 40px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+#connection-status {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 12px;
+    background: rgba(0,0,0,0.8);
+    border: 1px solid var(--accent-teal);
+    color: var(--accent-teal);
+    border-radius: 4px;
+    z-index: 10;
+}
+
+.hidden {
+    display: none;
 }
 
 .chat {
+    position: relative;
     display: flex;
     width: 100%;
     height: 100vh;
     padding: 10px;
     box-sizing: border-box;
+    z-index: 1;
 }
 
 .chat.vertical {
     flex-direction: column;
-    align-items: flex-start;
+    justify-content: flex-end;
 }
 
 .chat.horizontal {
@@ -27,47 +68,53 @@ body {
 .chat-message {
     display: flex;
     flex-direction: column;
-    margin: 5px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(4px);
+    margin: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--accent-magenta);
+    background: rgba(17,17,17,0.8);
+    color: var(--text-color);
+    border-radius: 2px;
     opacity: 0;
+    box-shadow: 0 0 8px rgba(0,255,200,0.3);
 }
 
 .chat-message .meta {
-    font-size: 0.8em;
+    font-size: 0.75em;
     margin-bottom: 2px;
     display: flex;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
 }
 
 .chat-message .meta .username {
-    font-weight: bold;
+    color: var(--accent-lime);
 }
 
 .chat-message .meta .platform {
     font-size: 0.7em;
-    opacity: 0.7;
+    padding: 0 4px;
+    background: var(--accent-crimson);
+    color: #000;
+    border-radius: 2px;
+    box-shadow: 0 0 3px rgba(255,48,79,0.7);
 }
 
 .twitch {
-    border-left: 4px solid #9146FF;
+    border-color: var(--accent-teal);
 }
 
 .youtube {
-    border-left: 4px solid #FF0000;
+    border-color: var(--accent-crimson);
 }
 
 .vip {
-    border-color: gold;
+    border-color: var(--accent-magenta);
 }
 
 .mod {
-    border-color: deepskyblue;
+    border-color: var(--accent-lime);
 }
 
-.hidden {
-    display: none;
+.content {
+    word-break: break-word;
 }
