@@ -14,17 +14,24 @@ const CONFIG = {
 };
 
 const chatContainer = document.getElementById('chat-container');
+const statusEl = document.getElementById('connection-status');
 let socket;
+let statusAnim;
 
 function connectWebSocket() {
+    showStatus('Streamer.bot Not Connected');
     socket = new WebSocket(CONFIG.streamerBotWsUrl);
     socket.addEventListener('open', () => console.log('WS connected'));
     socket.addEventListener('message', handleSocketMessage);
-    socket.addEventListener('close', () => setTimeout(connectWebSocket, 5000));
+    socket.addEventListener('close', () => {
+        showStatus('Streamer.bot Disconnected');
+        setTimeout(connectWebSocket, 5000);
+    });
 }
 
 function handleSocketMessage(event) {
     const data = JSON.parse(event.data);
+    if (statusEl && !statusEl.classList.contains('hidden')) hideStatus();
     if (data.event === 'OBS.SceneChanged') {
         updateOrientation(data.sceneName);
     } else if (data.event === 'Twitch.ChatMessage') {
@@ -138,6 +145,33 @@ async function fetchUserMeta(username) {
         console.warn('Stats fetch failed', e);
     }
     return meta;
+}
+
+function showStatus(message) {
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.classList.remove('hidden');
+    if (statusAnim) statusAnim.pause();
+    statusAnim = anime({
+        targets: statusEl,
+        opacity: [0.3, 1],
+        direction: 'alternate',
+        easing: 'easeInOutSine',
+        duration: 1000,
+        loop: true
+    });
+}
+
+function hideStatus() {
+    if (!statusEl) return;
+    if (statusAnim) statusAnim.pause();
+    anime({
+        targets: statusEl,
+        opacity: [1, 0],
+        duration: 500,
+        easing: 'easeOutQuad',
+        complete: () => statusEl.classList.add('hidden')
+    });
 }
 
 connectWebSocket();
