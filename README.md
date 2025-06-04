@@ -13,6 +13,7 @@ This repository contains an OBS-compatible HTML overlay for displaying chat mess
 - **Anime.js animations** for message entrance and fade out.
 - **Marathon theme** – black background, neon accents and grid overlays.
 - **Connection status indicator** that appears until Streamer.bot sends data.
+- **Info bar** displaying local time, date, and viewer stats with orientation-aware layout.
 
 ## Installation
 
@@ -38,6 +39,8 @@ Edit `overlay.js` and update `CONFIG.streamerBotWsUrl` with the WebSocket addres
 ### Orientation Detection
 
 Scenes are parsed for `[vertical]` or `[horizontal]` in the name. If no tag is found the last used orientation persists. Rename your scenes (e.g. `Gameplay [horizontal]`) to enable automatic switching.
+
+In vertical mode a top info bar shows the current time, date and viewer statistics. In horizontal mode this information splits into left and right panels on the edges of the screen.
 
 ### Style Customization
 
