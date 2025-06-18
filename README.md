@@ -58,3 +58,18 @@ Set the `wsUrl` to the WebSocket address of your Streamer.bot instance. Scene ch
 ## License
 
 This project is released under the terms of the **GNU General Public License v3.0**.
+
+## StreamElements Overlay Setup
+
+To use the overlay directly inside the StreamElements editor:
+
+1. Create a new **Custom Widget** in your StreamElements overlay.
+2. Copy the contents of `se-overlay/html.html` into the widget's **HTML** tab.
+3. Copy the contents of `se-overlay/css.css` into the **CSS** tab.
+4. Copy the contents of `se-overlay/js.js` into the **JS** tab.
+5. Replace the placeholder tokens in the `CONFIG` object with your Twitch, StreamElements and Streamer.bot credentials.
+6. Save the widget and add it to your overlay scene.
+7. Use a query parameter `?orientation=horizontal` in the overlay URL or emit an OBS scene change event containing `[horizontal]` or `[vertical]` from Streamer.bot to switch layouts.
+
+The debug console appears at the bottom of the overlay showing connection status and any errors.
+
