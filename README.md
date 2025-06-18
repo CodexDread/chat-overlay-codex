@@ -39,22 +39,3 @@ const CONFIG = {
 };
 ```
 
-### Twitch
-Create a Twitch application to obtain a **Client ID** and OAuth token. The token must include chat capabilities (IRC) and any scopes you use for additional API requests.
-
-### StreamElements
-Generate a JWT socket token from the StreamElements overlay settings. This token allows the overlay to listen for alert events and request user data such as watchtime.
-
-### Streamer.bot
-Set the `wsUrl` to the WebSocket address of your Streamer.bot instance. Scene change events are used to switch orientation automatically.
-
-## Files
-
-- `index.html` – main overlay markup.
-- `styles.css` – styling and layout rules.
-- `config.js` – configuration constants (edit to match your channel).
-- `overlay.js` – application logic and API integrations.
-
-## License
-
-This project is released under the terms of the **GNU General Public License v3.0**.
