@@ -1,83 +1,75 @@
-# OBS Chat Overlay
+# OBS Dynamic Chat Overlay
 
-## Project Overview
-
-This repository contains an OBS-compatible HTML overlay for displaying chat messages with a Marathon-inspired design. The overlay connects to **Streamer.bot** for chat data, adapts its layout based on the active OBS scene, and augments messages with pronoun and watchtime metadata from third-party APIs. Animations are powered by **anime.js** and a subtle connection status indicator lets you know when Streamer.bot is online.
+This project provides a fully browser-based chat overlay for OBS. It combines the Twitch API, StreamElements API, Streamer.bot WebSocket events and [anime.js](https://github.com/juliangarnier/anime) to produce an animated, scene-aware chat display.
 
 ## Features
 
-- **Scene-based orientation** – scenes tagged with `[vertical]` or `[horizontal]` automatically switch the layout.
-- **Real-time chat display** using the Streamer.bot WebSocket API.
-- **Platform detection** for Twitch or YouTube messages with colored tags.
-- **User metadata** – optional pronoun lookups and watchtime stats.
-- **Anime.js animations** for message entrance and fade out.
-- **Marathon theme** – black background, neon accents and grid overlays.
-- **Connection status indicator** that appears until Streamer.bot sends data.
-- **Info bar** displaying local time, date, and viewer stats with orientation-aware layout.
+- Orientation can be set by query parameter (`?orientation=vertical|horizontal`) or changed on the fly via Streamer.bot scene change events.
+- Real-time Twitch chat connection using `tmi.js`.
+- StreamElements WebSocket support for alerts and additional metadata.
+- Optional pronoun display through [pronouns.alejo.io](https://pronouns.alejo.io/) and watchtime lookups via StreamElements.
+- Animated entrance/fade of messages using anime.js.
+- Theme customization via `styles.css`.
 
-## Installation
+## Getting Started
 
 1. Clone or download this repository.
-2. Serve the files locally or via a web server, e.g. `C:\OBS\overlays\chat`.
-3. In OBS:
-   - Add a **Browser Source**.
-   - Set the source to `index.html` (local file path or URL).
-   - Adjust width, height and FPS as needed.
+2. Serve the files locally or on a web server reachable by OBS.
+3. In OBS add a **Browser Source** pointing to `index.html`. You can append `?orientation=horizontal` or `?orientation=vertical` if you want to force a mode.
+4. Adjust width, height and FPS in OBS to fit your layout.
 
 ## Configuration
 
-The overlay relies on several external services.
+All configuration is stored in `config.js`. The file contains placeholders for tokens and IDs:
 
-### Streamer.bot WebSocket
-
-Edit `overlay.js` and update `CONFIG.streamerBotWsUrl` with the WebSocket address for Streamer.bot. Include any tokens if your instance requires authentication.
-
-### Twitch API
-
-`CONFIG.twitchToken` is used when fetching pronouns or additional metadata. See the [Twitch API documentation](https://dev.twitch.tv/docs/api/) for creating an app and acquiring an OAuth token. Depending on your setup you may need scopes for reading chat and user data.
-
-### Orientation Detection
-
-Scenes are parsed for `[vertical]` or `[horizontal]` in the name. If no tag is found the last used orientation persists. Rename your scenes (e.g. `Gameplay [horizontal]`) to enable automatic switching.
-
-In vertical mode a top info bar shows the current time, date and viewer statistics. In horizontal mode this information splits into left and right panels on the edges of the screen.
-
-### Style Customization
-
-The CSS theme is defined in `style.css`. Edit the variables at the top of the file to adjust colors and fonts:
-
-```css
-:root {
-    --bg-color: #000;
-    --accent-teal: #00ffc6;
-    --accent-magenta: #ff00a8;
-    --accent-crimson: #ff304f;
-    --accent-lime: #aaff00;
-    --text-color: #ffffff;
-}
+```javascript
+const CONFIG = {
+    streamerBot: { wsUrl: 'ws://localhost:8080/StreamerBot' },
+    twitch: {
+        channel: '[CHANNEL]',
+        username: '[BOT_USERNAME]',
+        token: '[YOUR_TOKEN_HERE]',
+        clientId: '[CLIENT_ID]'
+    },
+    streamElements: {
+        jwtToken: '[YOUR_SE_JWT]',
+        channelId: '[SE_CHANNEL_ID]',
+        baseUrl: 'https://api.streamelements.com/kappa/v2'
+    }
+};
 ```
 
-You can also tweak message box styles, animation durations, and platform colors.
+### Twitch
+Create a Twitch application to obtain a **Client ID** and OAuth token. The token must include chat capabilities (IRC) and any scopes you use for additional API requests.
 
-## File Overview
+### StreamElements
+Generate a JWT socket token from the StreamElements overlay settings. This token allows the overlay to listen for alert events and request user data such as watchtime.
 
-- **index.html** – Base HTML for the overlay and connection status element.
-- **style.css** – Marathon-inspired styling and responsive layout rules.
-- **overlay.js** – Connects to Streamer.bot, listens for scene changes and chat messages, fetches metadata, and triggers animations.
-- **assets/** – (optional) icons or images referenced by the overlay.
+### Streamer.bot
+Set the `wsUrl` to the WebSocket address of your Streamer.bot instance. Scene change events are used to switch orientation automatically.
 
-## Dependencies
+## Files
 
-- [anime.js](https://animejs.com/) – included via CDN in `index.html`.
-- [Streamer.bot API](https://docs.streamer.bot/api/csharp) – WebSocket connection and optional stats endpoint.
-- [Twitch API](https://dev.twitch.tv/docs/api/) – used for pronoun/metadata lookups.
-
-## Troubleshooting
-
-- **No chat showing** – verify the Streamer.bot WebSocket URL and ensure the connection status indicator disappears after messages arrive.
-- **Layout not changing** – confirm scene names contain `[vertical]` or `[horizontal]`.
-- **Pronouns or watchtime missing** – check that your Twitch token and stats endpoints are configured correctly.
+- `index.html` – main overlay markup.
+- `styles.css` – styling and layout rules.
+- `config.js` – configuration constants (edit to match your channel).
+- `overlay.js` – application logic and API integrations.
 
 ## License
 
-This project is released under the terms of the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
+This project is released under the terms of the **GNU General Public License v3.0**.
+
+## StreamElements Overlay Setup
+
+To use the overlay directly inside the StreamElements editor:
+
+1. Create a new **Custom Widget** in your StreamElements overlay.
+2. Copy the contents of `se-overlay/html.html` into the widget's **HTML** tab.
+3. Copy the contents of `se-overlay/css.css` into the **CSS** tab.
+4. Copy the contents of `se-overlay/js.js` into the **JS** tab.
+5. Replace the placeholder tokens in the `CONFIG` object with your Twitch, StreamElements and Streamer.bot credentials.
+6. Save the widget and add it to your overlay scene.
+7. Use a query parameter `?orientation=horizontal` in the overlay URL or emit an OBS scene change event containing `[horizontal]` or `[vertical]` from Streamer.bot to switch layouts.
+
+The debug console appears at the bottom of the overlay showing connection status and any errors.
+
