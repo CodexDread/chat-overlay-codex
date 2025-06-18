@@ -1,196 +1,113 @@
-const CONFIG = {
-    maxMessages: 10,
-    fadeOutDelay: 10000,
-    orientationClassNames: {
-        vertical: 'vertical',
-        horizontal: 'horizontal'
-    },
-    platformColors: {
-        twitch: '#9146FF',
-        youtube: '#FF0000'
-    },
-    streamerBotWsUrl: 'ws://localhost:8080/StreamerBot', // placeholder
-    twitchToken: '[placeholder]',
-    statsRefreshInterval: 30000,
-};
+// Chat overlay main logic
 
 const chatContainer = document.getElementById('chat-container');
-const statusEl = document.getElementById('connection-status');
 const infoBar = document.getElementById('info-bar');
+const statusEl = document.getElementById('connection-status');
 const timeEl = document.getElementById('time');
 const dateEl = document.getElementById('date');
-const viewerEl = document.getElementById('viewer-count');
-const followerEl = document.getElementById('follower-count');
-const subEl = document.getElementById('subscriber-count');
-let socket;
-let statusAnim;
 
-function connectWebSocket() {
-    showStatus('Streamer.bot Not Connected');
-    socket = new WebSocket(CONFIG.streamerBotWsUrl);
-    socket.addEventListener('open', () => console.log('WS connected'));
-    socket.addEventListener('message', handleSocketMessage);
-    socket.addEventListener('close', () => {
-        showStatus('Streamer.bot Disconnected');
-        setTimeout(connectWebSocket, 5000);
+let streamerSocket;
+let seSocket;
+let twitchClient;
+
+function init() {
+    const orient = getOrientationFromQuery();
+    if (orient) setOrientation(orient);
+    connectStreamerBot();
+    connectTwitch();
+    connectStreamElements();
+    updateTime();
+    setInterval(updateTime, 1000);
+}
+
+function getOrientationFromQuery() {
+    const params = new URLSearchParams(location.search);
+    const o = params.get('orientation');
+    if (o === 'vertical' || o === 'horizontal') return o;
+    return '';
+}
+
+function setOrientation(o) {
+    chatContainer.classList.toggle('vertical', o === 'vertical');
+    chatContainer.classList.toggle('horizontal', o === 'horizontal');
+    infoBar.classList.toggle('vertical', o === 'vertical');
+    infoBar.classList.toggle('horizontal', o === 'horizontal');
+}
+
+function connectStreamerBot() {
+    if (!CONFIG.streamerBot || !CONFIG.streamerBot.wsUrl) return;
+    showStatus('Connecting to Streamer.bot');
+    streamerSocket = new WebSocket(CONFIG.streamerBot.wsUrl);
+    streamerSocket.addEventListener('open', () => hideStatus());
+    streamerSocket.addEventListener('message', e => {
+        const data = JSON.parse(e.data);
+        if (data.event === 'OBS.SceneChanged') {
+            if (data.sceneName) {
+                if (data.sceneName.includes('[vertical]')) setOrientation('vertical');
+                else if (data.sceneName.includes('[horizontal]')) setOrientation('horizontal');
+            }
+        }
+    });
+    streamerSocket.addEventListener('close', () => {
+        showStatus('Streamer.bot disconnected');
+        setTimeout(connectStreamerBot, 5000);
     });
 }
 
-function handleSocketMessage(event) {
-    const data = JSON.parse(event.data);
-    if (statusEl && !statusEl.classList.contains('hidden')) hideStatus();
-    if (data.event === 'OBS.SceneChanged') {
-        updateOrientation(data.sceneName);
-    } else if (data.event === 'Twitch.ChatMessage') {
-        processChatMessage(data);
-    }
-}
-
-function updateOrientation(sceneName) {
-    if (!sceneName) return;
-    let orient = '';
-    if (sceneName.includes('[vertical]')) orient = CONFIG.orientationClassNames.vertical;
-    else if (sceneName.includes('[horizontal]')) orient = CONFIG.orientationClassNames.horizontal;
-    if (!orient) return;
-    chatContainer.classList.toggle(CONFIG.orientationClassNames.vertical, orient === CONFIG.orientationClassNames.vertical);
-    chatContainer.classList.toggle(CONFIG.orientationClassNames.horizontal, orient === CONFIG.orientationClassNames.horizontal);
-    if (infoBar) {
-        infoBar.classList.toggle(CONFIG.orientationClassNames.vertical, orient === CONFIG.orientationClassNames.vertical);
-        infoBar.classList.toggle(CONFIG.orientationClassNames.horizontal, orient === CONFIG.orientationClassNames.horizontal);
-        anime({
-            targets: infoBar,
-            opacity: [0, 1],
-            duration: 500,
-            easing: 'easeOutQuad'
+function connectTwitch() {
+    if (!CONFIG.twitch || !CONFIG.twitch.channel) return;
+    twitchClient = new tmi.Client({
+        connection: { reconnect: true, secure: true },
+        identity: CONFIG.twitch.token !== '[YOUR_TOKEN_HERE]' ? {
+            username: CONFIG.twitch.username,
+            password: 'oauth:' + CONFIG.twitch.token
+        } : undefined,
+        channels: [CONFIG.twitch.channel]
+    });
+    twitchClient.connect();
+    twitchClient.on('message', async (channel, tags, message, self) => {
+        if (self) return;
+        const meta = await fetchUserMeta(tags['display-name'], tags['user-id']);
+        displayMessage({
+            username: tags['display-name'],
+            avatar: meta.avatar,
+            pronouns: meta.pronouns,
+            watchtime: meta.watchtime,
+            platform: 'Twitch',
+            text: message,
+            badges: tags.badges
         });
-    }
-}
-
-async function processChatMessage(message) {
-    const user = message.user || {};
-    const username = user.displayName || user.name || 'Unknown';
-    const platform = message.platform || 'twitch';
-
-    const meta = await fetchUserMeta(username);
-
-    const messageEl = document.createElement('div');
-    messageEl.className = `chat-message ${platform}`;
-    if (user.badges) {
-        if (user.badges.includes('moderator')) messageEl.classList.add('mod');
-        if (user.badges.includes('vip')) messageEl.classList.add('vip');
-    }
-
-    const metaEl = document.createElement('div');
-    metaEl.className = 'meta';
-    metaEl.innerHTML = `
-        <span class="username">${username}</span>
-        ${meta.pronouns ? `<span class="pronouns">(${meta.pronouns})</span>` : ''}
-        ${meta.watchtime ? `<span class="watchtime">${meta.watchtime}</span>` : ''}
-        <span class="platform">${platform}</span>
-    `;
-
-    const contentEl = document.createElement('div');
-    contentEl.className = 'content';
-    contentEl.innerHTML = parseMessage(message.text || message.message);
-
-    messageEl.appendChild(metaEl);
-    messageEl.appendChild(contentEl);
-
-    chatContainer.appendChild(messageEl);
-    animateIn(messageEl);
-    limitMessages();
-    scheduleFadeOut(messageEl);
-}
-
-function parseMessage(text) {
-    return text
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
-function animateIn(el) {
-    anime({
-        targets: el,
-        opacity: [0, 1],
-        translateY: [20, 0],
-        duration: 500,
-        easing: 'easeOutQuad'
     });
 }
 
-function scheduleFadeOut(el) {
-    setTimeout(() => {
-        anime({
-            targets: el,
-            opacity: [1, 0],
-            duration: 500,
-            easing: 'easeInQuad',
-            complete: () => el.remove()
-        });
-    }, CONFIG.fadeOutDelay);
-}
-
-function limitMessages() {
-    const messages = chatContainer.getElementsByClassName('chat-message');
-    while (messages.length > CONFIG.maxMessages) {
-        messages[0].remove();
-    }
-}
-
-async function fetchUserMeta(username) {
-    const meta = { pronouns: '', watchtime: '' };
-    try {
-        const pronounRes = await fetch(`https://pronouns.alejo.io/api/users/${encodeURIComponent(username)}`);
-        if (pronounRes.ok) {
-            const pData = await pronounRes.json();
-            if (pData.length && pData[0].pronoun_id) meta.pronouns = pData[0].pronoun_id;
+function connectStreamElements() {
+    if (!CONFIG.streamElements || !CONFIG.streamElements.jwtToken) return;
+    seSocket = new WebSocket('wss://realtime.streamelements.com/socket');
+    seSocket.addEventListener('open', () => {
+        seSocket.send(JSON.stringify({ method: 'handshake', token: CONFIG.streamElements.jwtToken }));
+    });
+    seSocket.addEventListener('message', e => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'event' && data.event && data.event.type) {
+            displayMessage({
+                username: 'System',
+                text: data.event.type,
+                platform: 'StreamElements'
+            });
         }
-    } catch (e) {
-        console.warn('Pronoun fetch failed', e);
-    }
-
-    try {
-        const statsRes = await fetch('http://localhost:8080/api/watchtime?user=' + encodeURIComponent(username), {
-            headers: { 'Authorization': 'Bearer [placeholder]' }
-        });
-        if (statsRes.ok) {
-            const sData = await statsRes.json();
-            if (sData && sData.watchtime) meta.watchtime = sData.watchtime;
-        }
-    } catch (e) {
-        console.warn('Stats fetch failed', e);
-    }
-    return meta;
+    });
 }
 
-function showStatus(message) {
+function showStatus(msg) {
     if (!statusEl) return;
-    statusEl.textContent = message;
+    statusEl.textContent = msg;
     statusEl.classList.remove('hidden');
-    if (statusAnim) statusAnim.pause();
-    statusAnim = anime({
-        targets: statusEl,
-        opacity: [0.3, 1],
-        direction: 'alternate',
-        easing: 'easeInOutSine',
-        duration: 1000,
-        loop: true
-    });
 }
 
 function hideStatus() {
     if (!statusEl) return;
-    if (statusAnim) statusAnim.pause();
-    anime({
-        targets: statusEl,
-        opacity: [1, 0],
-        duration: 500,
-        easing: 'easeOutQuad',
-        complete: () => statusEl.classList.add('hidden')
-    });
+    statusEl.classList.add('hidden');
 }
-
-connectWebSocket();
 
 function updateTime() {
     const now = new Date();
@@ -198,41 +115,77 @@ function updateTime() {
     if (dateEl) dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-async function updateChannelStats() {
+function escapeHtml(str) {
+    return str.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+async function fetchUserMeta(username, userId) {
+    const meta = { pronouns: '', watchtime: '', avatar: '' };
     try {
-        const res = await fetch('http://localhost:8080/api/channelStats', {
-            headers: { 'Authorization': 'Bearer [placeholder]' }
-        });
+        const res = await fetch(`https://pronouns.alejo.io/api/users/${encodeURIComponent(username)}`);
         if (res.ok) {
             const data = await res.json();
-            if (viewerEl) {
-                viewerEl.textContent = `Viewers: ${data.viewers}`;
-                animateInfoUpdate(viewerEl);
-            }
-            if (followerEl) {
-                followerEl.textContent = `Followers: ${data.followers}`;
-                animateInfoUpdate(followerEl);
-            }
-            if (subEl) {
-                subEl.textContent = `Subs: ${data.subscribers}`;
-                animateInfoUpdate(subEl);
+            if (data.length && data[0].pronoun_id) meta.pronouns = data[0].pronoun_id;
+        }
+    } catch (e) { }
+    try {
+        if (CONFIG.twitch && CONFIG.twitch.clientId && CONFIG.twitch.token !== '[YOUR_TOKEN_HERE]') {
+            const uRes = await fetch(`https://api.twitch.tv/helix/users?id=${userId}`, {
+                headers: {
+                    'Client-ID': CONFIG.twitch.clientId,
+                    'Authorization': 'Bearer ' + CONFIG.twitch.token
+                }
+            });
+            if (uRes.ok) {
+                const uData = await uRes.json();
+                if (uData.data && uData.data.length) meta.avatar = uData.data[0].profile_image_url;
             }
         }
-    } catch (e) {
-        console.warn('Channel stats fetch failed', e);
+    } catch (e) { }
+    try {
+        if (CONFIG.streamElements && CONFIG.streamElements.channelId) {
+            const wRes = await fetch(`${CONFIG.streamElements.baseUrl}/points/${CONFIG.streamElements.channelId}/${userId}`, {
+                headers: { Authorization: `Bearer ${CONFIG.streamElements.jwtToken}` }
+            });
+            if (wRes.ok) {
+                const wData = await wRes.json();
+                if (wData && typeof wData.watchtime === 'number') meta.watchtime = wData.watchtime + 'm';
+            }
+        }
+    } catch (e) { }
+    return meta;
+}
+
+function displayMessage({ username, avatar, pronouns, watchtime, platform, text, badges }) {
+    const el = document.createElement('div');
+    el.className = `chat-message ${platform.toLowerCase()}`;
+    if (badges) {
+        if (badges.moderator) el.classList.add('mod');
+        if (badges.vip) el.classList.add('vip');
     }
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    if (avatar) meta.innerHTML += `<img class="avatar" src="${avatar}" alt="avatar">`;
+    meta.innerHTML += `<span class="username">${escapeHtml(username)}</span>`;
+    if (pronouns) meta.innerHTML += `<span class="pronouns">(${pronouns})</span>`;
+    if (watchtime) meta.innerHTML += `<span class="watchtime">${watchtime}</span>`;
+    meta.innerHTML += `<span class="platform">${platform}</span>`;
+    const content = document.createElement('div');
+    content.className = 'content';
+    content.innerHTML = escapeHtml(text);
+    el.appendChild(meta);
+    el.appendChild(content);
+    chatContainer.appendChild(el);
+    anime({ targets: el, opacity: [0,1], translateY: [20,0], duration: 500, easing: 'easeOutQuad' });
+    setTimeout(() => {
+        anime({ targets: el, opacity: [1,0], duration: 500, easing: 'easeInQuad', complete: () => el.remove() });
+    }, CONFIG.fadeOutDelay || 15000);
+    limitMessages();
 }
 
-updateTime();
-updateChannelStats();
-setInterval(updateTime, 1000);
-setInterval(updateChannelStats, CONFIG.statsRefreshInterval);
-
-function animateInfoUpdate(el) {
-    anime({
-        targets: el,
-        color: [CONFIG.platformColors.twitch, '#ffffff'],
-        duration: 800,
-        easing: 'easeInOutSine'
-    });
+function limitMessages() {
+    const messages = chatContainer.getElementsByClassName('chat-message');
+    while (messages.length > (CONFIG.maxMessages || 20)) messages[0].remove();
 }
+
+window.addEventListener('DOMContentLoaded', init);
